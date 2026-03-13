@@ -1,1 +1,343 @@
-The Chord Traductor is on: 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AcordeOS</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { oled: '#000000' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; }
+        .oled { background-color: black !important; }
+        html { scroll-behavior: auto !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- ICONOS ---
+        const LibraryIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>;
+        const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+        const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
+        const PauseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>;
+        const ArrowLeftIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>;
+        const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+        const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+        const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>;
+        const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>;
+        const SpeedIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>;
+        const InfoIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
+        const MoonIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+        const SunIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
+        const HeartIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="text-red-500 inline-block align-middle mx-1"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>;
+
+        function App() {
+            const [currentScreen, setCurrentScreen] = useState('home');
+            const [songs, setSongs] = useState([]);
+            const [activeSongId, setActiveSongId] = useState(null);
+            const [settings, setSettings] = useState({ fontSize: 18, theme: 'dark', showChords: true, autoScrollSpeed: 1 });
+
+            useEffect(() => {
+                const link = document.createElement('link');
+                link.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap';
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+
+                const savedSongs = localStorage.getItem('acordeos_songs');
+                if (savedSongs) setSongs(JSON.parse(savedSongs));
+                else {
+                    const demoSongs = [{ id: 'demo-1', filename: 'Lamento_Boliviano.txt', title: 'Lamento Boliviano', artist: 'Enanitos Verdes', content: `Título: Lamento Boliviano\nArtista: Enanitos Verdes\n\nIntro:\n[Em]  [Bm]  [Am]  [Em]  [B7]\n\nVerso 1:\n[Em]Me quieren agitar\n[Bm]Me incitan a gritar\n[Am]Soy como una roca\n[Em]Palabras no me [B7]tocan\n[Em]Adentro hay un volcán\n[Bm]Que pronto va a estallar\n[Am]Yo quiero estar tranquilo\n\nCoro:\n[Em]Y mi lamento boliviano\n[Bm]Que un día empezó y no va a terminar\n[Am]Y a nadie hace daño\n[Em]Oh, oh, oh, oh, [B7]eh\n[Em]Y yo estoy aquí, borracho y loco\n[Bm]Y mi corazón idiota\n[Am]Siempre brillará\n[Em]Y yo te amaré\n[B7]Te amaré por siempre` }];
+                    setSongs(demoSongs);
+                }
+
+                const savedSettings = localStorage.getItem('acordeos_settings');
+                if (savedSettings) setSettings(JSON.parse(savedSettings));
+            }, []);
+
+            useEffect(() => {
+                const root = document.documentElement;
+                root.classList.remove('dark', 'oled');
+                if (settings.theme === 'dark') root.classList.add('dark');
+                else if (settings.theme === 'oled') root.classList.add('dark', 'oled');
+                localStorage.setItem('acordeos_settings', JSON.stringify(settings));
+            }, [settings]);
+
+            const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
+
+            return (
+                <div className={`min-h-screen transition-colors duration-300 ${settings.theme === 'oled' ? 'bg-black text-white' : (settings.theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900')}`}>
+                    {currentScreen === 'home' && (
+                        <div className={`flex flex-col items-center justify-center min-h-screen p-6 text-center ${settings.theme === 'oled' ? 'bg-black' : (settings.theme === 'dark' ? 'bg-gray-950' : 'bg-blue-600')}`}>
+                            <h1 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800 }} className="text-6xl tracking-tight mb-4 text-white">AcordeOS</h1>
+                            <p className="text-blue-100 mb-12 max-w-xs font-medium mx-auto opacity-80">Tu biblioteca personal de acordes y letras.</p>
+                            <div className="w-full max-w-xs space-y-4">
+                                <button onClick={() => setCurrentScreen('library')} className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-lg shadow-xl bg-white text-blue-600 active:scale-95 transition-transform"><LibraryIcon /> Biblioteca</button>
+                                <button onClick={() => setCurrentScreen('settings')} className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-lg border border-white/20 text-white active:scale-95 transition-transform"><SettingsIcon /> Configuración</button>
+                            </div>
+                        </div>
+                    )}
+                    {currentScreen === 'library' && <LibraryScreen songs={songs} setSongs={setSongs} goBack={() => setCurrentScreen('home')} onOpenSong={(id) => {setActiveSongId(id); setCurrentScreen('viewer');}} theme={settings.theme} />}
+                    {currentScreen === 'viewer' && activeSongId && <ViewerScreen song={songs.find(s => s.id === activeSongId)} settings={settings} updateSetting={updateSetting} goBack={() => setCurrentScreen('library')} />}
+                    {currentScreen === 'settings' && <SettingsScreen settings={settings} updateSetting={updateSetting} goBack={() => setCurrentScreen('home')} />}
+                </div>
+            );
+        }
+
+        function LibraryScreen({ songs, setSongs, goBack, onOpenSong, theme }) {
+            const isDark = theme !== 'light';
+            const handleFileUpload = (e) => {
+                const files = Array.from(e.target.files);
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const content = event.target.result;
+                        let title = file.name.replace('.txt', '').replace(/_/g, ' ');
+                        let artist = 'Desconocido';
+                        const lines = content.split('\n');
+                        for (let i = 0; i < Math.min(lines.length, 10); i++) {
+                            const line = lines[i].trim();
+                            if (/^t[ií]tulo:/i.test(line)) title = line.split(':')[1].trim();
+                            if (/^artista:/i.test(line)) artist = line.split(':')[1].trim();
+                        }
+                        const newSong = { id: Date.now() + Math.random().toString(), filename: file.name, title, artist, content };
+                        setSongs(prev => {
+                            const updated = [...prev, newSong];
+                            localStorage.setItem('acordeos_songs', JSON.stringify(updated));
+                            return updated;
+                        });
+                    };
+                    reader.readAsText(file);
+                });
+            };
+
+            const deleteSong = (id) => {
+                const updated = songs.filter(s => s.id !== id);
+                setSongs(updated);
+                localStorage.setItem('acordeos_songs', JSON.stringify(updated));
+            };
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    <div className={`p-4 sticky top-0 z-10 border-b flex items-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                        <button onClick={goBack} className="p-2 mr-2"><ArrowLeftIcon /></button>
+                        <h2 className="text-xl font-bold">Biblioteca</h2>
+                    </div>
+                    <div className="p-4 flex-1">
+                        <ul className="space-y-3 max-w-2xl mx-auto">
+                            {songs.map(song => (
+                                <li key={song.id} className={`rounded-2xl border flex overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                    <button onClick={() => onOpenSong(song.id)} className="flex-1 p-5 text-left">
+                                        <h3 className="font-bold">{song.title}</h3>
+                                        <p className="text-sm opacity-60 uppercase">{song.artist}</p>
+                                    </button>
+                                    <button onClick={() => deleteSong(song.id)} className="px-5 text-red-500 border-l border-gray-700/20"><TrashIcon /></button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="fixed bottom-6 right-6">
+                        <input type="file" accept=".txt" multiple onChange={handleFileUpload} className="hidden" id="file-upload" />
+                        <label htmlFor="file-upload" className="w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-2xl flex items-center justify-center cursor-pointer"><PlusIcon /></label>
+                    </div>
+                </div>
+            );
+        }
+
+        function ViewerScreen({ song, settings, updateSetting, goBack }) {
+            const [isScrolling, setIsScrolling] = useState(false);
+            const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+            const speedOptions = [0.25, 0.5, 1, 2, 3];
+            const isDark = settings.theme !== 'light';
+
+            useEffect(() => {
+                if (!isScrolling) return;
+                let requestRef;
+                let lastTime = performance.now();
+                let accumulator = 0;
+                const animate = (currentTime) => {
+                    const deltaTime = currentTime - lastTime;
+                    lastTime = currentTime;
+                    const pixelsToScroll = (settings.autoScrollSpeed * 0.06) * deltaTime;
+                    accumulator += pixelsToScroll;
+                    if (accumulator >= 1 || accumulator <= -1) {
+                        const scrollAmount = Math.floor(accumulator);
+                        window.scrollBy(0, scrollAmount);
+                        accumulator -= scrollAmount;
+                    }
+                    if ((window.innerHeight + window.pageYOffset) >= document.documentElement.scrollHeight - 2) {
+                        setIsScrolling(false);
+                        return;
+                    }
+                    requestRef = requestAnimationFrame(animate);
+                };
+                requestRef = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef);
+            }, [isScrolling, settings.autoScrollSpeed]);
+
+            const handleTouch = (e) => {
+                if (!e.target.closest('.controls-bar')) {
+                    if (isScrolling) setIsScrolling(false);
+                    if (showSpeedMenu) setShowSpeedMenu(false);
+                }
+            };
+
+            const renderLine = (line, index) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={index} className="h-6"></div>;
+                if (/^(t[ií]tulo|artista|tono|capo|tempo):/i.test(trimmed)) return null;
+                if (/^(intro|coro|verso|estribillo|puente|solo|pre-coro|outro).*:/i.test(trimmed)) {
+                    return <div key={index} className="mt-8 mb-4"><span className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-black uppercase">{trimmed.replace(':', '')}</span></div>;
+                }
+                const parts = line.split(/(\[[a-zA-Z0-9#b\/\+\-]*\])/);
+                let chunks = [];
+                let currentChord = null;
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    if (part.startsWith('[') && part.endsWith(']')) currentChord = part.slice(1, -1);
+                    else { chunks.push({ chord: currentChord, text: part }); currentChord = null; }
+                }
+                return (
+                    <div key={index} className="flex flex-wrap items-end mb-3 min-h-[2.5em]">
+                        {chunks.map((chunk, j) => (
+                            <div key={j} className="flex flex-col relative mr-[1px]">
+                                {chunk.chord && settings.showChords && <span className={`font-black text-[0.85em] mb-[-0.2em] ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{chunk.chord}</span>}
+                                <span className="whitespace-pre font-medium">{chunk.text || (chunk.chord ? ' ' : '')}</span>
+                            </div>
+                        ))}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="flex flex-col min-h-screen pb-40" onClick={handleTouch}>
+                    <div className={`fixed top-0 w-full backdrop-blur-md z-20 p-4 border-b flex items-center justify-between ${isDark ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-gray-100'}`}>
+                        <div className="flex items-center">
+                            <button onClick={goBack} className="p-2 mr-2"><ArrowLeftIcon /></button>
+                            <div>
+                                <h2 className="font-bold truncate max-w-[180px]">{song.title}</h2>
+                                <p className="text-[10px] uppercase font-bold opacity-50">{song.artist}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="pt-28 px-6 w-full max-w-2xl mx-auto" style={{ fontSize: `${settings.fontSize}px` }}>
+                        {song.content.split('\n').map((line, i) => renderLine(line, i))}
+                    </div>
+                    <div className={`controls-bar fixed bottom-6 left-1/2 -translate-x-1/2 shadow-2xl rounded-3xl px-4 py-3 flex items-center gap-4 z-30 border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => updateSetting('showChords', !settings.showChords)} className={`p-3 rounded-xl ${settings.showChords ? 'text-blue-600' : 'text-gray-400'}`}><EyeIcon /></button>
+                        <div className="relative">
+                            {showSpeedMenu && (
+                                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-2 border rounded-2xl flex flex-col gap-1 min-w-[70px] ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                    {speedOptions.map(v => (
+                                        <button key={v} onClick={() => { updateSetting('autoScrollSpeed', v); setShowSpeedMenu(false); }} className={`py-2 rounded-xl text-xs font-bold ${settings.autoScrollSpeed === v ? 'bg-blue-600 text-white' : ''}`}>{v}x</button>
+                                    ))}
+                                </div>
+                            )}
+                            <button onClick={() => setShowSpeedMenu(!showSpeedMenu)} className="p-3 flex flex-col items-center"><SpeedIcon /><span className="text-[10px] font-bold">{settings.autoScrollSpeed}x</span></button>
+                        </div>
+                        <button onClick={() => setIsScrolling(!isScrolling)} className={`w-14 h-14 rounded-2xl text-white flex items-center justify-center shadow-lg ${isScrolling ? 'bg-amber-500' : 'bg-blue-600'}`}>{isScrolling ? <PauseIcon /> : <PlayIcon />}</button>
+                        <div className="flex gap-1">
+                            <button onClick={() => updateSetting('fontSize', Math.max(12, settings.fontSize - 2))} className="w-10 h-10 rounded-xl bg-gray-500/10 font-bold">-</button>
+                            <button onClick={() => updateSetting('fontSize', Math.min(32, settings.fontSize + 2))} className="w-10 h-10 rounded-xl bg-gray-500/10 font-bold">+</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function SettingsScreen({ settings, updateSetting, goBack }) {
+            const [activeTab, setActiveTab] = useState('config');
+            const isDark = settings.theme !== 'light';
+            const isOled = settings.theme === 'oled';
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    <div className={`p-4 border-b flex items-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                        <button onClick={goBack} className="p-2 mr-2"><ArrowLeftIcon /></button>
+                        <h2 className="text-xl font-bold">Configuración</h2>
+                    </div>
+
+                    <div className={`flex border-b ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                        <button onClick={() => setActiveTab('config')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest ${activeTab === 'config' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>Ajustes</button>
+                        <button onClick={() => setActiveTab('help')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest ${activeTab === 'help' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>Guía .txt</button>
+                    </div>
+
+                    <div className="p-6 max-w-lg mx-auto w-full flex-1">
+                        {activeTab === 'config' ? (
+                            <div className="space-y-8 animate-fadeIn h-full flex flex-col">
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-black text-blue-600 uppercase">Tema</h3>
+                                    <div className="flex gap-2">
+                                        {['light', 'dark', 'oled'].map(t => (
+                                            <button key={t} onClick={() => updateSetting('theme', t)} className={`flex-1 py-3 rounded-xl font-bold border ${settings.theme === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-500/10'}`}>{t}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-black text-blue-600 uppercase">Tamaño de Fuente</h3>
+                                    <input type="range" min="12" max="32" value={settings.fontSize} onChange={(e) => updateSetting('fontSize', parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none accent-blue-600" />
+                                </div>
+                                
+                                <div className="flex-1"></div>
+
+                                <div className="pt-10 text-center border-t border-dashed border-gray-500/20">
+                                    <p className="text-sm italic opacity-60">"Esta aplicación está dedicada a mi hermano <span className="font-bold text-blue-500">Victor Gabriel</span>, porque nos mueve la música desde niños"</p>
+                                    <div className="mt-2 text-red-500"><HeartIcon /></div>
+                                    <p className="mt-4 text-[10px] opacity-30 font-bold uppercase tracking-widest">AcordeOS v1.2.6</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6 animate-fadeIn">
+                                <section className="space-y-3">
+                                    <h3 className="flex items-center gap-2 text-blue-600 font-black uppercase text-xs tracking-wider"><PlusIcon /> Cómo añadir canciones</h3>
+                                    <ol className="list-decimal list-inside text-sm opacity-70 space-y-2">
+                                        <li>Ve a la pantalla de <strong>Biblioteca</strong>.</li>
+                                        <li>Toca el botón <strong>+</strong> en la esquina inferior derecha.</li>
+                                        <li>Selecciona archivos <strong>.txt</strong> de tu teléfono o PC.</li>
+                                    </ol>
+                                </section>
+
+                                <section className="space-y-3">
+                                    <h3 className="flex items-center gap-2 text-blue-600 font-black uppercase text-xs tracking-wider"><InfoIcon /> Formato recomendado</h3>
+                                    <p className="text-sm opacity-70">Para que el reconocimiento sea óptimo, estructura tu archivo así:</p>
+                                    <div className={`p-4 rounded-xl font-mono text-[11px] border ${isDark ? 'bg-black border-gray-800' : 'bg-gray-50'}`}>
+                                        <p className="text-blue-500">Título: Mi Canción</p>
+                                        <p className="text-blue-500">Artista: Mi Grupo</p>
+                                        <br />
+                                        <p>Coro:</p>
+                                        <p>En el [G]cielo de tu [D]boca</p>
+                                        <p>me que[Em]dé a vivir sin [C]aire</p>
+                                    </div>
+                                    <ul className="space-y-3 mt-4 text-xs opacity-70">
+                                        <li className="flex gap-2"><strong>Acordes:</strong> Úsalos entre corchetes [Do] justo antes de la sílaba donde cambian.</li>
+                                        <li className="flex gap-2"><strong>Secciones:</strong> Escribe el nombre de la sección seguido de dos puntos (ej: Intro:) para resaltarlas.</li>
+                                    </ul>
+                                </section>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
